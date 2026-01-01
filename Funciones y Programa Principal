@@ -1,0 +1,193 @@
+def obtener_sesiones_temporada(temporada):
+    """
+    Obtiene solo las carreras oficiales de la temporada indicada.
+    """
+    url = 'https://api.openf1.org/v1/sessions'
+    params = {"year": temporada,
+              "session_type": 'Race',
+              "session_name": 'Race'}
+  
+    try: 
+
+        res = requests.get(url, params=params)
+
+        if res.status_code != 200:
+            print(f'Error {res.status_code} al consultar OpenF1 API')
+            return pd.DataFrame()
+
+        data = res.json()
+
+        if not data:
+            print(f'No hay datos de carreras para la temporada {temporada}')
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(data)
+
+        return df
+    
+    except Exception as e:
+        print(f'Error al obtener race control: {e}')
+        return pd.DataFrame()
+
+def obtener_resultados_carrera(session_key):
+    """
+    Obtener los resultados finales de una carrera.
+    Incluyendo posicion, DNF (no termino), DNS (no inicio),
+    DSQ (descalificado) y tiempos de cada piloto.
+    """
+
+    url = 'https://api.openf1.org/v1/session_result'
+    params = {"session_key": session_key}
+
+    try:
+
+        res = requests.get(url, params=params)
+
+        if res.status_code != 200:
+            print(f'Error {res.status_code} al consultar OpenF1 API')
+            return pd.DataFrame()
+
+        data = res.json()
+
+        if not data:
+            print(f'No hay datos de race control para la sesion {session_key}')
+            return pd.DataFrame()
+        
+        df_race_control = pd.DataFrame(data)
+
+        return df_race_control
+    
+    except Exception as e:
+        print(f'Error al obtener race control: {e}')
+        return pd.DataFrame()
+
+
+def obtener_clima_carrera(session_key):
+    url = 'https://api.openf1.org/v1/weather'
+    params = {'session_key': session_key}
+
+    try:
+
+        res = requests.get(url, params=params)
+
+        if res.status_code != 200:
+            print(f'Error {res.status_code} al consultar OpenF1 API')
+            return pd.DataFrame()
+
+        data = res.json()
+        df_clima = pd.DataFrame(data)
+
+        return df_clima
+    
+    except Exception as e:
+        print(f'Error al obtener clima: {e}')
+        return pd.DataFrame()
+
+
+import requests
+import time
+import pandas as pd
+
+def obtener_altitud_geonames(ciudad):
+    """
+    Obtiene altitud con GeoNames API
+    """
+    USERNAME = 'mabac'
+    
+    url = 'http://api.geonames.org/searchJSON'
+
+    params = {
+        'q': ciudad,
+        'username': USERNAME,
+        'style': 'FULL',
+        'maxRows': 1
+    }
+    
+    res = requests.get(url, params=params)
+    data = res.json()
+    
+    if 'geonames' in data and len(data['geonames']) > 0:
+        resultado = data['geonames'][0]
+        
+        # Buscar altitud (utiliza datos del modelo SRTM 3.0 de la NASA)
+        altitud = resultado.get('srtm3')
+        
+        if altitud and altitud != '':
+            return int(altitud)
+    
+    return None
+
+
+# PROGRAMA
+
+temporadas = [2023, 2024, 2025]
+
+resultados = []
+climas = []
+
+for temporada in temporadas:
+
+    # Obtener todas las carreras de la temporada
+    df_carreras = obtener_sesiones_temporada(temporada)
+
+    # Obtener resultados de cada carrera
+    for index, carrera in df_carreras.iterrows():
+        session_key = carrera['session_key']
+        nombre_carrera = carrera['location']
+
+        df_resultado = obtener_resultados_carrera(session_key)
+
+        if not df_resultado.empty:
+            # Filtrar columnas
+            df_filtrado = df_resultado[['session_key', 'driver_number', 'position',
+                                        'number_of_laps', 'dnf', 'dns', 'dsq']].copy()
+            
+            # Agregar informe de la carrera
+            df_filtrado['location'] = nombre_carrera
+            df_filtrado['country'] = carrera['country_name']
+            df_filtrado['year'] = temporada
+
+            resultados.append(df_filtrado)
+
+    # Obtener datos del clima de cada carrera
+    for index, carrera in df_carreras.iterrows():
+        session_key = carrera['session_key']
+        nombre_carrera = carrera['location']
+
+        df_clima = obtener_clima_carrera(session_key)
+
+        if not df_clima.empty:
+            # Calcular promedios de clima para cada carrera
+            clima_resumen = {
+                'session_key': session_key,
+                'location': nombre_carrera,
+                'country': carrera['country_name'],
+                'year': temporada,
+                'temp_aire_promedio': float(df_clima['air_temperature'].mean()),
+                'temp_pista_promedio': float(df_clima['track_temperature'].mean()),
+                'velocidad_viento': float(df_clima['wind_speed'].mean()),
+                'hubo_lluvia': df_clima['rainfall'].max() > 0,
+                'lluvia_total': df_clima['rainfall'].sum()
+            }
+
+            climas.append(clima_resumen)
+
+# Crear DataFrame de clima
+df_resultados_completo = pd.concat(resultados, ignore_index=True)
+df_clima_completo = pd.DataFrame(climas)
+
+# Guardar CSV
+df_resultados_completo.to_csv('resultados_carreras.csv', index=False)
+df_clima_completo.to_csv('clima_carreras.csv', index=False)
+
+
+# Buscar altitud para cada ciudad de F1
+ciudades_f1 = df_clima_completo['location'].unique()
+
+altitudes = []
+for ciudad in ciudades_f1:
+    alt = obtener_altitud_geonames(ciudad)
+    altitudes.append({'ciudad': ciudad, 'altitud': alt})
+
+df_altitudes_f1 = pd.DataFrame(altitudes)
+df_altitudes_f1.to_csv('altitudes_f1.csv', index=False)
