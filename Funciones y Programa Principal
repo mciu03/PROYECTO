@@ -92,7 +92,7 @@ def obtener_altitud_geonames(ciudad):
     """
     Obtiene altitud con GeoNames API
     """
-    USERNAME = 'mabac'
+    USERNAME = 'user_name'
     
     url = 'http://api.geonames.org/searchJSON'
 
