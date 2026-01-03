@@ -163,9 +163,9 @@ for temporada in temporadas:
                 'location': nombre_carrera,
                 'country': carrera['country_name'],
                 'year': temporada,
-                'temp_aire_promedio': float(df_clima['air_temperature'].mean()),
-                'temp_pista_promedio': float(df_clima['track_temperature'].mean()),
-                'velocidad_viento': float(df_clima['wind_speed'].mean()),
+                'temp_aire_promedio': round(float(df_clima['air_temperature'].mean()), 4),
+                'temp_pista_promedio': round(float(df_clima['track_temperature'].mean()), 4),
+                'velocidad_viento': round(float(df_clima['wind_speed'].mean()), 4),
                 'hubo_lluvia': df_clima['rainfall'].max() > 0,
                 'lluvia_total': df_clima['rainfall'].sum()
             }
