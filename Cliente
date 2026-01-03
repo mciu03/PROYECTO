@@ -1,0 +1,48 @@
+"""
+Cliente_PRY - Envia resultados, clima y altitud al servidor
+"""
+
+from socket import *
+import pandas as pd
+import json
+
+host = 'localhost'
+port = 10000
+
+# Leer CSV
+df_resultados = pd.read_csv('resultados_carreras.csv')
+df_clima = pd.read_csv('clima_carreras.csv')
+df_altitudes = pd.read_csv('altitudes_f1.csv')
+
+# Convertir a diccionarios
+resultados = df_resultados.to_dict("records")
+clima = df_clima.to_dict("records")
+altitudes = df_altitudes.to_dict("records")
+
+# Crear JSON
+datos = {'resultados': resultados,
+         'clima': clima,
+         'altitudes': altitudes}
+
+texto = json.dumps(datos, default=str)
+
+# Crear socket
+cliente = socket(AF_INET, SOCK_STREAM)
+
+try:
+    # Conectar
+    cliente.connect((host, port))
+    print("Conectado al servidor")
+
+    # Enviar datos
+    cliente.sendall(texto.encode('utf-8'))
+    cliente.shutdown(SHUT_WR) # Indica al servidor que termino de enviar los datos
+    print("Datos enviados correctamente")
+
+except Exception as e:
+    print(f'Error: {e}')
+
+finally:
+    # Cerrar en todo caso
+    cliente.close()
+    print("Conexion cerrada")
