@@ -1,0 +1,56 @@
+"""
+Servidor_PRY - Recibe datos de F1 y los guarda en CSVs
+"""
+from socket import *
+import json
+import pandas as pd
+
+# Crear socket TCP
+socket_servidor = socket(AF_INET, SOCK_STREAM) # TCP
+
+# Asociar puerto
+socket_servidor.bind(('', 10000))
+socket_servidor.listen()
+
+print("Servidor escuchando en el puerto 10000...")
+
+while True:
+    socket_conexion, direccion = socket_servidor.accept()
+    print("Cliente conectado:", direccion)
+
+    # Recibir datos
+    datos = b'' # Acumula los bytes que se van recibiendo
+    while True:
+        try:
+            parte = socket_conexion.recv(4096)
+            if not parte:
+                break
+            datos += parte
+        except Exception as e:
+            print(f"Error al recibir datos: {e}")
+            break
+
+    try:
+        datos_str = datos.decode('utf-8')
+        datos_json = json.loads(datos_str)
+
+        resultados = datos_json['resultados']
+        clima = datos_json['clima']
+        altitudes = datos_json['altitudes']
+
+        # Guardar en CSV
+        df_resultados = pd.DataFrame(resultados)
+        df_resultados.to_csv('servidor_resultados.csv', index=False)
+
+        df_clima = pd.DataFrame(clima)
+        df_clima.to_csv('servidor_clima.csv', index=False)
+
+        df_altitudes = pd.DataFrame(altitudes)
+        df_altitudes.to_csv('servidor_altitudes.csv', index=False)
+
+        print("Datos guardados existosamente")
+
+    except Exception as e:
+        print(f'Error al procesar los datos: {e}')
+
+    socket_conexion.close()
